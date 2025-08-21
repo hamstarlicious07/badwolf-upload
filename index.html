@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bad Wolf — Quick Photo Upload</title>
+  <script src="https://widget.cloudinary.com/v2.0/global/all.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; padding:16px; }
+    button { padding:12px 16px; border-radius:12px; border:0; font-weight:600; }
+    #copywrap { margin-top:14px; display:flex; gap:8px; }
+    input { flex:1; padding:10px; border:1px solid #ccc; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <h3>Take a photo</h3>
+  <p>Tap the button, shoot, then copy the URL into Glide.</p>
+
+  <button id="open">📸 Open Camera</button>
+
+  <div id="copywrap" style="display:none;">
+    <input id="url" readonly>
+    <button id="copy">Copy URL</button>
+  </div>
+
+  <script>
+    const cloudName   = "YOUR_CLOUD_NAME";      // ← replace
+    const uploadPreset= "badwolf_unsigned";     // ← or your preset name
+
+    const widget = cloudinary.createUploadWidget({
+      cloudName,
+      uploadPreset,
+      sources: ['camera','local'],
+      multiple: false,
+      folder: 'badwolf/transactions',
+      clientAllowedFormats: ['jpg','jpeg','png','webp'],
+      maxImageFileSize: 6_000_000, // 6MB cap (adjust if you like)
+      cropping: false
+    }, (error, result) => {
+      if (!error && result && result.event === "success") {
+        const rawUrl = result.info.secure_url;
+        document.getElementById('url').value = rawUrl;
+        document.getElementById('copywrap').style.display = 'flex';
+      }
+    });
+
+    document.getElementById('open').onclick = () => widget.open();
+    document.getElementById('copy').onclick = async () => {
+      const u = document.getElementById('url').value;
+      try { await navigator.clipboard.writeText(u); alert('Copied! Switch back to Glide and paste.'); }
+      catch { alert('Copy failed—long-press the URL to copy.'); }
+    };
+  </script>
+</body>
+</html>
