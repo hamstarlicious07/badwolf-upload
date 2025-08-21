@@ -2,53 +2,101 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bad Wolf — Quick Photo Upload</title>
-  <script src="https://widget.cloudinary.com/v2.0/global/all.js"></script>
+  <title>Bad Wolf — Quick Photo</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; padding:16px; }
-    button { padding:12px 16px; border-radius:12px; border:0; font-weight:600; }
-    #copywrap { margin-top:14px; display:flex; gap:8px; }
-    input { flex:1; padding:10px; border:1px solid #ccc; border-radius:10px; }
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; margin:0; padding:16px; background:#111; color:#eee; }
+    .btn { padding:14px 16px; border:0; border-radius:12px; font-weight:700; background:#6c4df8; color:#fff; }
+    .row { display:flex; gap:8px; align-items:center; }
+    #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#222; color:#fff;
+      padding:10px 14px; border-radius:999px; opacity:0; transition:opacity .25s; }
+    #url { width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#ddd; }
   </style>
 </head>
 <body>
-  <h3>Take a photo</h3>
-  <p>Tap the button, shoot, then copy the URL into Glide.</p>
+  <h2 style="margin-top:0;">Take a photo</h2>
+  <p style="margin-top:0.4rem;color:#bbb">Shoot → we shrink it → upload → URL auto-copied.</p>
 
-  <button id="open">📸 Open Camera</button>
+  <!-- Hidden camera input -->
+  <input id="cam" type="file" accept="image/*" capture="environment" style="display:none">
 
-  <div id="copywrap" style="display:none;">
+  <button id="open" class="btn">📸 Open Camera</button>
+
+  <div class="row" style="margin-top:14px; display:none" id="out">
     <input id="url" readonly>
-    <button id="copy">Copy URL</button>
+    <button id="copy" class="btn" style="white-space:nowrap">Copy</button>
   </div>
 
-  <script>
-    const cloudName   = "dbvq3eily";      // ← replace
-    const uploadPreset= "badwolf_unsigned";     // ← or your preset name
+  <div id="toast"></div>
 
-    const widget = cloudinary.createUploadWidget({
-      cloudName,
-      uploadPreset,
-      sources: ['camera','local'],
-      multiple: false,
-      folder: 'badwolf/transactions',
-      clientAllowedFormats: ['jpg','jpeg','png','webp'],
-      maxImageFileSize: 6_000_000, // 6MB cap (adjust if you like)
-      cropping: false
-    }, (error, result) => {
-      if (!error && result && result.event === "success") {
-        const rawUrl = result.info.secure_url;
-        document.getElementById('url').value = rawUrl;
-        document.getElementById('copywrap').style.display = 'flex';
-      }
-    });
+<script>
+  // 🟣 EDIT THESE TWO
+  const CLOUD_NAME    = "dbvq3eily";
+  const UPLOAD_PRESET = "badwolf_unsigned";
 
-    document.getElementById('open').onclick = () => widget.open();
-    document.getElementById('copy').onclick = async () => {
-      const u = document.getElementById('url').value;
-      try { await navigator.clipboard.writeText(u); alert('Copied! Switch back to Glide and paste.'); }
-      catch { alert('Copy failed—long-press the URL to copy.'); }
-    };
-  </script>
+  const cam   = document.getElementById('cam');
+  const openB = document.getElementById('open');
+  const out   = document.getElementById('out');
+  const urlEl = document.getElementById('url');
+  const copyB = document.getElementById('copy');
+  const toast = document.getElementById('toast');
+
+  function showToast(msg){ toast.textContent = msg; toast.style.opacity = 1; setTimeout(()=>toast.style.opacity=0, 1600); }
+
+  // Resize to keep files tiny but clear
+  async function downscale(file, maxW=1280, maxH=1280, quality=0.72){
+    const img = await createImageBitmap(file);
+    let {width:w, height:h} = img;
+    const scale = Math.min(1, maxW/w, maxH/h);
+    const canvas = new OffscreenCanvas(w*scale, h*scale);
+    const ctx = canvas.getContext('2d', {alpha:false});
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await canvas.convertToBlob({type:'image/jpeg', quality});
+    return blob;
+  }
+
+  async function uploadToCloudinary(blob){
+    const fd = new FormData();
+    fd.append("file", blob);
+    fd.append("upload_preset", UPLOAD_PRESET);
+    // optional organizational folder:
+    fd.append("folder", "badwolf/transactions");
+
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method:'POST', body:fd });
+    if(!r.ok) throw new Error('Upload failed');
+    return r.json(); // { secure_url, ... }
+  }
+
+  openB.addEventListener('click', ()=> cam.click());
+
+  cam.addEventListener('change', async (e)=>{
+    const file = e.target.files?.[0];
+    if(!file) return;
+    openB.disabled = true; openB.textContent = 'Uploading…';
+
+    try{
+      const small = await downscale(file);                    // shrink on device
+      const info  = await uploadToCloudinary(small);          // upload
+      urlEl.value = info.secure_url;                          // show URL
+      out.style.display = 'flex';
+      try{ await navigator.clipboard.writeText(info.secure_url); showToast('✅ URL copied'); }
+      catch{ showToast('URL ready — tap Copy'); }
+    }catch(err){
+      console.error(err);
+      showToast('Upload failed');
+    }finally{
+      openB.disabled = false; openB.textContent = '📸 Open Camera';
+      cam.value = ''; // reset so next capture fires change
+    }
+  });
+
+  copyB.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(urlEl.value); showToast('✅ Copied'); }
+    catch{ showToast('Copy blocked — long-press URL'); }
+  });
+
+  // (Optional) auto-open camera after the first tap on the page:
+  // document.addEventListener('click', function once(){ cam.click(); document.removeEventListener('click', once); }, {once:true});
+</script>
 </body>
 </html>
