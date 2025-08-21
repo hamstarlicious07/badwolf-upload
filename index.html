@@ -1,102 +1,266 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bad Wolf — Quick Photo</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bad Wolf — Image upload</title>
+
+  <!-- Zain font -->
+  <link href="https://fonts.googleapis.com/css2?family=Zain:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
     :root { color-scheme: dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto; margin:0; padding:16px; background:#111; color:#eee; }
-    .btn { padding:14px 16px; border:0; border-radius:12px; font-weight:700; background:#6c4df8; color:#fff; }
-    .row { display:flex; gap:8px; align-items:center; }
-    #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#222; color:#fff;
-      padding:10px 14px; border-radius:999px; opacity:0; transition:opacity .25s; }
-    #url { width:100%; padding:10px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#ddd; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px 18px 64px;
+      background: #0f0f10;
+      color: #eee;
+      font-family: "Zain", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: grid;
+      place-items: center;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+
+    .hero-emoji {
+      font-size: 92px;
+      line-height: 1;
+      display: inline-block;
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.35));
+      margin: 32px 0 10px;
+    }
+    h1 {
+      margin: 10px 0 6px;
+      font-size: 44px;
+      line-height: 1.05;
+      letter-spacing: .3px;
+    }
+    p.sub {
+      margin: 0 0 26px;
+      color: #bdbdbf;
+      font-size: 18px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 6px 0 18px;
+    }
+
+    /* Buttons: single line, centered, responsive */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      min-width: 220px;
+      border: 0;
+      border-radius: 14px;
+      background: #6c4df8;
+      color: #fff;
+      font-weight: 700;
+      font-size: 18px;
+      white-space: nowrap;     /* keep it on one line */
+      box-shadow: 0 8px 24px rgba(108,77,248,.3);
+      transition: transform .06s ease, filter .06s ease, opacity .2s ease;
+      cursor: pointer;
+    }
+    .btn:active { transform: translateY(1px) scale(.995); filter: brightness(.98); }
+    .btn.secondary {
+      background: #1f1f22;
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+
+    /* URL row */
+    .out {
+      display: none;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    #url {
+      width: 100%;
+      max-width: 430px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #2b2b30;
+      background: #161618;
+      color: #e6e6e7;
+      text-align: center;
+      font-size: 16px;
+      user-select: all;
+    }
+    .copy-btn { min-width: 110px; }
+
+    /* Toast */
+    #toast{
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      background: #1f1f22;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      font-weight: 700;
+    }
+
+    /* Small phones: scale down a bit so buttons never wrap */
+    @media (max-width: 380px) {
+      h1 { font-size: 36px; }
+      p.sub { font-size: 16px; }
+      .btn { font-size: 16px; padding: 12px 16px; min-width: 195px; }
+      #url { font-size: 15px; }
+      .hero-emoji { font-size: 76px; }
+    }
   </style>
 </head>
 <body>
-  <h2 style="margin-top:0;">Take a photo</h2>
-  <p style="margin-top:0.4rem;color:#bbb">Capture photo → Gets upload → Copy URL</p>
+  <div class="wrap">
+    <div class="hero-emoji">🖼️</div>
+    <h1>Image upload</h1>
+    <p class="sub">Capture or upload a photo → Gets uploaded → Copy URL</p>
 
-  <!-- Hidden camera input -->
-  <input id="cam" type="file" accept="image/*" capture="environment" style="display:none">
+    <div class="buttons">
+      <button id="btnCamera" class="btn">📷 Take a photo</button>
+      <button id="btnUpload" class="btn secondary">🖼️ Upload photo</button>
+    </div>
 
-  <button id="open" class="btn">📸 Take a photo</button>
-
-  <div class="row" style="margin-top:14px; display:none" id="out">
-    <input id="url" readonly>
-    <button id="copy" class="btn" style="white-space:nowrap">Copy</button>
+    <!-- Output row -->
+    <div class="out" id="outRow">
+      <input id="url" readonly title="Tap to copy" />
+      <button id="btnCopy" class="btn copy-btn">Copy</button>
+    </div>
   </div>
 
   <div id="toast"></div>
 
+  <!-- Hidden inputs -->
+  <input id="fileCam"    type="file" accept="image/*" capture="environment" style="display:none" />
+  <input id="filePicker" type="file" accept="image/*" style="display:none" />
+
 <script>
-  // 🟣 EDIT THESE TWO
+  // 🔧 Edit these to your account/preset if needed
   const CLOUD_NAME    = "dbvq3eily";
   const UPLOAD_PRESET = "badwolf_unsigned";
 
-  const cam   = document.getElementById('cam');
-  const openB = document.getElementById('open');
-  const out   = document.getElementById('out');
-  const urlEl = document.getElementById('url');
-  const copyB = document.getElementById('copy');
-  const toast = document.getElementById('toast');
+  // Elements
+  const btnCamera = document.getElementById('btnCamera');
+  const btnUpload = document.getElementById('btnUpload');
+  const fileCam   = document.getElementById('fileCam');
+  const filePick  = document.getElementById('filePicker');
 
-  function showToast(msg){ toast.textContent = msg; toast.style.opacity = 1; setTimeout(()=>toast.style.opacity=0, 1600); }
+  const outRow = document.getElementById('outRow');
+  const urlEl  = document.getElementById('url');
+  const btnCopy= document.getElementById('btnCopy');
+  const toast  = document.getElementById('toast');
 
-  // Resize to keep files tiny but clear
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.style.opacity = 1;
+    setTimeout(()=> toast.style.opacity = 0, 1600);
+  }
+
+  // Keep files tiny but clear (client-side)
   async function downscale(file, maxW=1280, maxH=1280, quality=0.72){
     const img = await createImageBitmap(file);
     let {width:w, height:h} = img;
-    const scale = Math.min(1, maxW/w, maxH/h);
-    const canvas = new OffscreenCanvas(w*scale, h*scale);
+    const scale = Math.min(1, maxW / w, maxH / h);
+    const canvas = new OffscreenCanvas(Math.round(w*scale), Math.round(h*scale));
     const ctx = canvas.getContext('2d', {alpha:false});
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await canvas.convertToBlob({type:'image/jpeg', quality});
-    return blob;
+    return await canvas.convertToBlob({ type: 'image/jpeg', quality });
   }
 
   async function uploadToCloudinary(blob){
     const fd = new FormData();
-    fd.append("file", blob);
-    fd.append("upload_preset", UPLOAD_PRESET);
-    // optional organizational folder:
-    fd.append("folder", "badwolf/transactions");
+    fd.append('file', blob);
+    fd.append('upload_preset', UPLOAD_PRESET);
+    fd.append('folder', 'badwolf/transactions'); // optional organization
 
-    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method:'POST', body:fd });
-    if(!r.ok) throw new Error('Upload failed');
-    return r.json(); // { secure_url, ... }
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: fd
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    return await res.json(); // { secure_url, ... }
   }
 
-  openB.addEventListener('click', ()=> cam.click());
+  function setBusy(btn, busyText){
+    btn.dataset._txt = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyText;
+  }
+  function clearBusy(btn){
+    btn.disabled = false;
+    btn.textContent = btn.dataset._txt || btn.textContent;
+  }
 
-  cam.addEventListener('change', async (e)=>{
-    const file = e.target.files?.[0];
-    if(!file) return;
-    openB.disabled = true; openB.textContent = 'Uploading…';
+  async function handleFiles(files, originBtn){
+    const file = files?.[0];
+    if (!file) return;
+
+    setBusy(originBtn, 'Uploading…');
 
     try{
-      const small = await downscale(file);                    // shrink on device
-      const info  = await uploadToCloudinary(small);          // upload
-      urlEl.value = info.secure_url;                          // show URL
-      out.style.display = 'flex';
-      try{ await navigator.clipboard.writeText(info.secure_url); showToast('✅ URL copied'); }
-      catch{ showToast('URL ready — tap Copy'); }
+      const small = await downscale(file);
+      const info  = await uploadToCloudinary(small);
+
+      urlEl.value = info.secure_url;
+      outRow.style.display = 'flex';
+
+      // auto-copy
+      try {
+        await navigator.clipboard.writeText(info.secure_url);
+        showToast('✅ URL copied');
+      } catch {
+        showToast('URL ready — tap Copy');
+      }
     }catch(err){
       console.error(err);
       showToast('Upload failed');
     }finally{
-      openB.disabled = false; openB.textContent = '📸 Open Camera';
-      cam.value = ''; // reset so next capture fires change
+      clearBusy(originBtn);
+      // reset file inputs so picking the same file again still fires change
+      fileCam.value = '';
+      filePick.value = '';
     }
+  }
+
+  // Openers
+  btnCamera.addEventListener('click', ()=> fileCam.click());
+  btnUpload.addEventListener('click', ()=> filePick.click());
+
+  // Handlers
+  fileCam.addEventListener('change',  (e)=> handleFiles(e.target.files, btnCamera));
+  filePick.addEventListener('change', (e)=> handleFiles(e.target.files, btnUpload));
+
+  // Copy actions
+  btnCopy.addEventListener('click', async ()=>{
+    if (!urlEl.value) return;
+    try { await navigator.clipboard.writeText(urlEl.value); showToast('✅ Copied'); }
+    catch { showToast('Copy blocked — long-press URL'); }
   });
 
-  copyB.addEventListener('click', async ()=>{
-    try{ await navigator.clipboard.writeText(urlEl.value); showToast('✅ Copied'); }
-    catch{ showToast('Copy blocked — long-press URL'); }
+  urlEl.addEventListener('click', async ()=>{
+    if (!urlEl.value) return;
+    try { await navigator.clipboard.writeText(urlEl.value); showToast('✅ Copied'); }
+    catch { showToast('Copy blocked — long-press URL'); }
   });
-
-  // (Optional) auto-open camera after the first tap on the page:
-  // document.addEventListener('click', function once(){ cam.click(); document.removeEventListener('click', once); }, {once:true});
 </script>
 </body>
 </html>
