@@ -28,9 +28,9 @@
 <body>
   <div class="wrap">
     <h1>Take a photo</h1>
-    <p>Shoot → we upload to Cloudinary → URL auto-copied.</p>
+    <p>Capture photo → Gets uploaded → URL copied.</p>
 
-    <button id="open" class="btn">📸 Open Camera</button>
+    <button id="open" class="btn">📸 Take a photo</button>
     <div id="copyRow">
       <input id="url" readonly>
       <button id="copy" class="btn" style="padding:12px 14px">Copy</button>
@@ -142,6 +142,32 @@
       try { cam.click(); } catch {}
     }, 150);
   });
+
+  const widget = cloudinary.createUploadWidget({
+  cloudName,
+  uploadPreset,
+  sources: ['camera','local'],
+  multiple: false,
+  folder: 'badwolf/transactions',
+  clientAllowedFormats: ['jpg','jpeg','png','webp'],
+  maxImageFileSize: 6_000_000, // 6MB
+  cropping: false
+}, async (error, result) => {
+  if (!error && result && result.event === "success") {
+    const rawUrl = result.info.secure_url;
+    document.getElementById('url').value = rawUrl;
+    document.getElementById('copywrap').style.display = 'flex';
+
+    // 🔥 Auto copy to clipboard
+    try {
+      await navigator.clipboard.writeText(rawUrl);
+      // Small toast/alert confirmation
+      alert('✅ Photo uploaded & URL copied to clipboard!');
+    } catch (err) {
+      alert('⚠️ Upload succeeded but auto-copy failed — long press URL to copy.');
+    }
+  }
+});
 </script>
 </body>
 </html>
