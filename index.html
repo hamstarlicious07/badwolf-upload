@@ -86,18 +86,7 @@
     return raw;
   }
 
-  // Try to auto-copy (may be blocked on some iOS builds)
-  async function autoCopy(text){
-    try {
-      await navigator.clipboard.writeText(text);
-      toast('✅ URL copied');
-      return true;
-    } catch {
-      copyRow.style.display = 'flex';
-      toast('Tap Copy to place URL');
-      return false;
-    }
-  }
+
 
   // Handle file selection → upload → copy
   cam.addEventListener('change', async () => {
