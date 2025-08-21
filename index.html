@@ -3,111 +3,145 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bad Wolf — Quick Photo Upload</title>
-  <script src="https://widget.cloudinary.com/v2.0/global/all.js"></script>
   <style>
-    :root {
-      --bg:#0c0c0f; --card:#121217; --text:#e9e9ee;
-      --muted:#9da3af; --accent:#7357ff; --accent-2:#5a44d6;
-    }
+    :root { --bg:#0c0c0f; --text:#e9e9ee; --muted:#a3a8b4; --accent:#7357ff; }
     html,body{height:100%}
-    body{
-      margin:0; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
-      display:flex; align-items:flex-start; justify-content:center;
-    }
-    .wrap{width:100%; max-width:720px; padding:24px}
-    h1{margin:0 0 10px; font-size:42px; letter-spacing:.3px}
-    p{margin:0 0 18px; color:var(--muted); line-height:1.5}
-    .btn{
-      display:inline-flex; align-items:center; gap:.6rem;
-      padding:16px 18px; border-radius:14px; border:0;
-      background:var(--accent); color:white; font-weight:700;
-      box-shadow:0 10px 30px rgba(115,87,255,.3);
-    }
-    .btn:active{transform:translateY(1px)}
-    .hint{margin-top:10px; color:var(--muted); font-size:13px}
-    /* Toast */
-    #toast{
-      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
-      background:#171923; color:#f8fafc; padding:12px 14px;
-      border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35);
-      opacity:0; pointer-events:none; transition:opacity .25s, transform .25s;
-      font-weight:600; letter-spacing:.2px;
-    }
-    #toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+    body{margin:0;background:var(--bg);color:var(--text);
+         font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+    .wrap{max-width:720px;margin:0 auto;padding:24px}
+    h1{margin:0 0 10px;font-size:40px}
+    p{margin:0 0 18px;color:var(--muted)}
+    .btn{display:inline-flex;align-items:center;gap:.6rem;
+         padding:16px 18px;border-radius:14px;border:0;background:var(--accent);
+         color:#fff;font-weight:700}
+    #copyRow{display:none;gap:8px;margin-top:14px}
+    #url{flex:1;padding:12px;border-radius:10px;border:1px solid #2a2b33;
+         background:#13141a;color:#e8eaf2}
+    #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+           background:#171923;color:#f8fafc;padding:12px 14px;border-radius:12px;
+           box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;pointer-events:none;
+           transition:opacity .2s, transform .2s;font-weight:600}
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+    input[type=file]{display:none}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Take a photo</h1>
-    <p>Shoot → we shrink it → upload → URL auto-copied.</p>
+    <p>Shoot → we upload to Cloudinary → URL auto-copied.</p>
 
     <button id="open" class="btn">📸 Open Camera</button>
-    <div id="toast" role="status" aria-live="polite"></div>
-    <div class="hint" id="hint" style="display:none;">
-      If the camera didn’t open automatically, tap <b>Open Camera</b>.
+    <div id="copyRow">
+      <input id="url" readonly>
+      <button id="copy" class="btn" style="padding:12px 14px">Copy</button>
     </div>
+
+    <!-- Native camera picker -->
+    <input id="cam" type="file" accept="image/*" capture="environment" />
+
+    <div id="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script>
-    // 🔧 set your Cloudinary project values
-    const cloudName    = "dbvq3eily";           // ← yours
-    const uploadPreset = "badwolf_unsigned";    // ← yours
+<script>
+  // 🔧 Your Cloudinary project
+  const cloudName    = "dbvq3eily";            // <— change
+  const uploadPreset = "badwolf_unsigned";     // <— change
 
-    // Small toast helper
-    const toastEl = document.getElementById('toast');
-    let toastTimer;
-    function toast(msg){
-      clearTimeout(toastTimer);
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 1600);
+  // Optional inline delivery transforms (keeps files light on view)
+  const TRANSFORM = "f_auto,q_auto,w_1280";    // comment out if not wanted
+
+  const MAX_BYTES = 6_000_000; // 6 MB
+
+  const cam   = document.getElementById('cam');
+  const openB = document.getElementById('open');
+  const urlI  = document.getElementById('url');
+  const copyB = document.getElementById('copy');
+  const copyRow = document.getElementById('copyRow');
+  const toastEl = document.getElementById('toast');
+
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(()=>toastEl.classList.remove('show'), 1400);
+  }
+
+  // Upload to Cloudinary (unsigned)
+  async function uploadToCloudinary(file){
+    const form = new FormData();
+    form.append('file', file);
+    form.append('upload_preset', uploadPreset);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST', body: form
+    });
+    if(!res.ok) throw new Error('Upload failed');
+    const data = await res.json();
+
+    // add optional transforms for lighter delivery
+    const raw = data.secure_url;
+    if (typeof TRANSFORM === 'string' && TRANSFORM.length) {
+      return raw.replace('/upload/', `/upload/${TRANSFORM}/`);
     }
+    return raw;
+  }
 
-    // Create the widget
-    const widget = cloudinary.createUploadWidget({
-      cloudName,
-      uploadPreset,
-      sources: ['camera','local'],
-      multiple: false,
-      folder: 'badwolf/transactions',
-      clientAllowedFormats: ['jpg','jpeg','png','webp'],
-      maxImageFileSize: 6_000_000,   // 6 MB cap (adjust as you like)
-      cropping: false
-    }, async (error, result) => {
-      if (error) {
-        toast('Upload failed');
-        return;
-      }
-      if (result && result.event === "success") {
-        const url = result.info.secure_url; // raw upload URL
-        // Auto-copy to clipboard
-        try {
-          await navigator.clipboard.writeText(url);
-          toast('✅ URL copied to clipboard');
-        } catch {
-          toast('⚠️ Copy failed — long press to copy');
-        }
-      }
-    });
+  // Try to auto-copy (may be blocked on some iOS builds)
+  async function autoCopy(text){
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('✅ URL copied');
+      return true;
+    } catch {
+      copyRow.style.display = 'flex';
+      toast('Tap Copy to place URL');
+      return false;
+    }
+  }
 
-    // Open on button tap
-    document.getElementById('open').addEventListener('click', () => widget.open());
+  // Handle file selection → upload → copy
+  cam.addEventListener('change', async () => {
+    const f = cam.files && cam.files[0];
+    if(!f) return;
+    if (f.size > MAX_BYTES) {
+      toast('Image is too large (>6MB)');
+      return;
+    }
+    try {
+      toast('Uploading…');
+      const url = await uploadToCloudinary(f);
+      urlI.value = url;
+      copyRow.style.display = 'flex';
+      await autoCopy(url);   // best effort
+    } catch (e) {
+      console.error(e);
+      toast('Upload failed');
+    } finally {
+      cam.value = ''; // allow re-pick same file
+    }
+  });
 
-    // Try to auto-open on page load (iOS may block without a user gesture)
-    window.addEventListener('load', () => {
-      // Give the widget a moment to initialize
-      setTimeout(() => {
-        try {
-          widget.open();
-          // If the browser blocks it, the button remains visible.
-          // Show a hint after a short delay so users know what to do.
-          setTimeout(()=> document.getElementById('hint').style.display = 'block', 900);
-        } catch {
-          document.getElementById('hint').style.display = 'block';
-        }
-      }, 150);
-    });
-  </script>
+  // Copy button fallback
+  copyB.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(urlI.value);
+      toast('✅ URL copied');
+    } catch {
+      urlI.select(); document.execCommand('copy');
+      toast('✅ URL copied');
+    }
+  });
+
+  // Open camera (user gesture guaranteed)
+  openB.addEventListener('click', () => cam.click());
+
+  // Try to auto-open on load; if blocked, user taps button
+  window.addEventListener('load', () => {
+    // small delay improves success rate on some webviews
+    setTimeout(() => {
+      try { cam.click(); } catch {}
+    }, 150);
+  });
+</script>
 </body>
 </html>
