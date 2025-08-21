@@ -23,7 +23,7 @@
   </div>
 
   <script>
-    const cloudName   = "YOUR_CLOUD_NAME";      // ← replace
+    const cloudName   = "dbvq3eily";      // ← replace
     const uploadPreset= "badwolf_unsigned";     // ← or your preset name
 
     const widget = cloudinary.createUploadWidget({
@@ -33,7 +33,7 @@
       multiple: false,
       folder: 'badwolf/transactions',
       clientAllowedFormats: ['jpg','jpeg','png','webp'],
-      maxImageFileSize: 6_000_000, // 6MB cap (adjust if you like)
+      maxImageFileSize: 500_000, // 6MB cap (adjust if you like)
       cropping: false
     }, (error, result) => {
       if (!error && result && result.event === "success") {
